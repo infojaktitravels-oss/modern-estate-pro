@@ -6,22 +6,21 @@ const ListingForm = ({ user, addProperty }) => {
   const [form, setForm] = useState({
     title: '',
     price: '',
+    location: '',
     beds: '',
     baths: '',
     sqft: '',
-    type: 'Residential'
+    type: 'Residential',
   });
 
   const [images, setImages] = useState([]);
   const [preview, setPreview] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Handle input change
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // Handle image selection
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     setImages(files);
@@ -30,7 +29,6 @@ const ListingForm = ({ user, addProperty }) => {
     setPreview(previews);
   };
 
-  // Upload images to Supabase
   const uploadImages = async () => {
     const urls = [];
 
@@ -56,7 +54,6 @@ const ListingForm = ({ user, addProperty }) => {
     return urls;
   };
 
-  // Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -64,29 +61,46 @@ const ListingForm = ({ user, addProperty }) => {
     try {
       const imageUrls = await uploadImages();
 
-      const newProperty = {
-        ...form,
-        images: imageUrls,
-        user_id: user.id
-      };
-
-      // Save to Supabase DB
-      const { error } = await supabase
+      // ✅ Insert property
+      const { data, error } = await supabase
         .from('properties')
-        .insert([newProperty]);
+        .insert({
+          title: form.title,
+          price: form.price,
+          location: form.location,
+          image_url: imageUrls[0], // main image
+          beds: form.beds,
+          baths: form.baths,
+          sqft: form.sqft,
+          property_type: form.type,
+          agent_id: user.id,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
-      addProperty(newProperty);
+      // ✅ Insert multiple images
+      if (imageUrls.length > 0) {
+        await supabase.from('property_images').insert(
+          imageUrls.map(url => ({
+            property_id: data.id,
+            image_url: url,
+          }))
+        );
+      }
 
-      alert('Property listed successfully!');
+      addProperty(data);
+      alert("Property added successfully!");
+
       setForm({
         title: '',
         price: '',
+        location: '',
         beds: '',
         baths: '',
         sqft: '',
-        type: 'Residential'
+        type: 'Residential',
       });
       setImages([]);
       setPreview([]);
@@ -100,98 +114,120 @@ const ListingForm = ({ user, addProperty }) => {
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>Create Property Listing</h2>
+      <div style={styles.card}>
+        <h2 style={styles.title}>Add New Property</h2>
 
-      <form onSubmit={handleSubmit} style={styles.form}>
+        <form onSubmit={handleSubmit} style={styles.form}>
 
-        {/* IMAGE UPLOAD */}
-        <label style={styles.uploadBox}>
-          <UploadCloud size={40} />
-          <p>Click or drag images to upload</p>
-          <input type="file" multiple hidden onChange={handleImageChange} />
-        </label>
-
-        {/* PREVIEW */}
-        <div style={styles.previewGrid}>
-          {preview.map((src, i) => (
-            <img key={i} src={src} alt="preview" style={styles.previewImg} />
+          {/* INPUTS */}
+          {['title', 'price', 'location'].map(field => (
+            <input
+              key={field}
+              name={field}
+              placeholder={field.toUpperCase()}
+              value={form[field]}
+              onChange={handleChange}
+              style={styles.input}
+              required
+            />
           ))}
-        </div>
 
-        {/* INPUTS */}
-        <input name="title" placeholder="Title" value={form.title} onChange={handleChange} style={styles.input} required />
-        <input name="price" placeholder="Price" value={form.price} onChange={handleChange} style={styles.input} required />
+          <div style={styles.row}>
+            <input name="beds" placeholder="Beds" onChange={handleChange} style={styles.input} />
+            <input name="baths" placeholder="Baths" onChange={handleChange} style={styles.input} />
+            <input name="sqft" placeholder="Sqft" onChange={handleChange} style={styles.input} />
+          </div>
 
-        <div style={styles.row}>
-          <input name="beds" placeholder="Beds" value={form.beds} onChange={handleChange} style={styles.input} />
-          <input name="baths" placeholder="Baths" value={form.baths} onChange={handleChange} style={styles.input} />
-        </div>
+          {/* IMAGE UPLOAD */}
+          <label style={styles.uploadBox}>
+            <UploadCloud size={28} />
+            <span>Upload Property Images</span>
+            <input type="file" multiple hidden onChange={handleImageChange} />
+          </label>
 
-        <div style={styles.row}>
-          <input name="sqft" placeholder="Sqft" value={form.sqft} onChange={handleChange} style={styles.input} />
-          <select name="type" value={form.type} onChange={handleChange} style={styles.input}>
-            <option>Residential</option>
-            <option>Commercial</option>
-          </select>
-        </div>
+          {/* PREVIEW */}
+          <div style={styles.previewGrid}>
+            {preview.map((img, i) => (
+              <img key={i} src={img} alt="preview" style={styles.previewImg} />
+            ))}
+          </div>
 
-        <button type="submit" style={styles.button} disabled={loading}>
-          {loading ? <Loader2 style={styles.spinner} /> : 'Publish Listing'}
-        </button>
+          {/* BUTTON */}
+          <button type="submit" style={styles.button} disabled={loading}>
+            {loading ? <Loader2 className="spin" /> : 'Submit Property'}
+          </button>
 
-      </form>
+        </form>
+      </div>
     </div>
   );
 };
 
 const styles = {
-  container: { padding: '40px', maxWidth: '800px', margin: 'auto' },
-  title: { marginBottom: '20px' },
-  form: { display: 'flex', flexDirection: 'column', gap: '15px' },
-
-  uploadBox: {
-    border: '2px dashed #cbd5e1',
+  container: {
+    background: '#0f172a',
+    minHeight: '100vh',
     padding: '40px',
-    textAlign: 'center',
-    cursor: 'pointer',
-    borderRadius: '12px'
+    display: 'flex',
+    justifyContent: 'center'
   },
-
-  previewGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, 100px)',
-    gap: '10px'
+  card: {
+    background: '#ffffff',
+    padding: '30px',
+    borderRadius: '16px',
+    width: '100%',
+    maxWidth: '600px',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.2)'
   },
-
-  previewImg: {
-    width: '100px',
-    height: '100px',
-    objectFit: 'cover',
-    borderRadius: '8px'
+  title: {
+    fontSize: '1.8rem',
+    marginBottom: '20px',
+    color: '#0f172a',
+    fontWeight: '800'
   },
-
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '15px'
+  },
   input: {
     padding: '12px',
     borderRadius: '8px',
-    border: '1px solid #e2e8f0'
+    border: '1px solid #cbd5e1',
+    fontSize: '1rem'
   },
-
   row: {
     display: 'flex',
     gap: '10px'
   },
-
+  uploadBox: {
+    border: '2px dashed #2563eb',
+    padding: '20px',
+    textAlign: 'center',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    color: '#2563eb',
+    fontWeight: '600'
+  },
+  previewGrid: {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap'
+  },
+  previewImg: {
+    width: '80px',
+    height: '80px',
+    objectFit: 'cover',
+    borderRadius: '8px'
+  },
   button: {
     background: '#2563eb',
-    color: 'white',
+    color: '#fff',
     padding: '14px',
     border: 'none',
     borderRadius: '10px',
-    fontWeight: 'bold'
-  },
-
-  spinner: {
-    animation: 'spin 1s linear infinite'
+    fontWeight: '700',
+    cursor: 'pointer'
   }
 };
 
