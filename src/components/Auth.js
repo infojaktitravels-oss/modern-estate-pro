@@ -32,21 +32,18 @@ const Auth = () => {
 
   // --- EMAIL/PASSWORD AUTH ---
   const handleAuth = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
+  try {
     if (isLogin) {
       const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       });
-
-      if (error) {
-        alert(error.message);
-      } else {
-        const userRole = data.user.user_metadata?.role;
-        navigate(userRole === 'agent' ? '/agent-portal' : '/buyer-dashboard');
-      }
+      if (error) throw error;
+      const userRole = data.user.user_metadata?.role;
+      navigate(userRole === 'agent' ? '/agent-portal' : '/buyer-dashboard');
     } else {
       if (formData.password !== formData.confirmPassword) {
         alert("Passwords do not match!");
@@ -66,12 +63,16 @@ const Auth = () => {
           }
         }
       });
-
-      if (error) alert(error.message);
-      else alert("Check your email for a confirmation link!");
+      if (error) throw error;
+      alert("Registration successful! Please check your email.");
     }
-    setLoading(false);
-  };
+  } catch (err) {
+    console.error("Auth Error:", err);
+    alert("Connection Error: " + err.message);
+  } finally {
+    setLoading(false); // This ensures the spinner stops no matter what
+  }
+};
 
   return (
     <div style={styles.container}>
