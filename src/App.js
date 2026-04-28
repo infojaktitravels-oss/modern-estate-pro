@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'; 
 import { Routes, Route, Navigate } from 'react-router-dom';
 
-// Import components
+// Components
 import Header from './components/Header';
 import Hero from './components/Hero';
 import Properties from './components/Properties'; 
@@ -15,25 +15,25 @@ import ListingForm from './components/ListingForm';
 import Settings from './components/Settings'; 
 import PropertyDetails from './components/PropertyDetails';
 import AdminDashboard from './components/AdminDashboard';
-import { supabase } from './supabaseClient';
 import AddListing from './components/AddListing';
 
+import { supabase } from './supabaseClient';
+
 function App() {
-  // 1. Define all states at the very top
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState([
     { 
       id: 1, 
       title: 'Modern Sunset Villa (Sample)', 
-      price: '$850,000', 
+      price: '850000',
       location: 'Malibu, CA', 
       image: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800',
-      beds: '4', baths: '3', sqft: '2,500', type: 'Residential'
+      beds: '4', baths: '3', sqft: '2500', type: 'Residential'
     }
   ]);
 
-  // 2. Single Effect for Auth: Handles initial session and real-time changes
+  // 🔐 Auth state
   useEffect(() => {
     const initializeAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -50,13 +50,13 @@ function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 3. Single Effect for Data: Fetches real properties from Supabase
+  // 📦 Fetch properties
   useEffect(() => {
     const fetchProperties = async () => {
       const { data, error } = await supabase
         .from('properties')
         .select('*');
-      
+
       if (error) {
         console.error("Error fetching properties:", error);
       } else if (data && data.length > 0) {
@@ -71,7 +71,7 @@ function App() {
     setProperties((prev) => [newProp, ...prev]);
   };
 
-  // 4. Loading screen prevents "flicker" while checking if user is logged in
+  // ⏳ Loading screen
   if (loading) {
     return (
       <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -81,11 +81,13 @@ function App() {
   }
 
   return (
-    <div style={{ margin: 0, padding: 0, fontFamily: 'Arial, sans-serif', scrollBehavior: 'smooth' }}>
+    <div style={{ margin: 0, padding: 0, fontFamily: 'Arial, sans-serif' }}>
       <Header user={user} setUser={setUser} />
-      
+
       <main style={{ minHeight: '80vh' }}>
         <Routes>
+
+          {/* HOME */}
           <Route path="/" element={
             <>
               <Hero />
@@ -95,44 +97,62 @@ function App() {
               <section id="contact"><Contact /></section>
             </>
           } />
-          
+
+          {/* PUBLIC */}
           <Route path="/login" element={<Auth setUser={setUser} />} />
           <Route path="/pricing" element={<Pricing user={user} setUser={setUser} />} />
           <Route path="/property/:id" element={<PropertyDetails properties={properties} />} />
 
-          {/* PROTECTED ROUTES */}
+          {/* PROTECTED */}
           <Route 
             path="/settings" 
             element={user ? <Settings user={user} setUser={setUser} /> : <Navigate to="/login" />} 
           />
+
           <Route 
             path="/list-property" 
             element={user ? <ListingForm addProperty={addProperty} user={user} /> : <Navigate to="/login" />} 
           />
-          
-          {/* ROLE-BASED DASHBOARDS */}
+
           <Route 
-            path="/agent-portal" 
-            element={user?.user_metadata?.role === 'agent' ? <AgentDashboard user={user} properties={properties} /> : <Navigate to="/login" />} 
-          />
-          <Route 
-            path="/buyer-dashboard" 
-            element={user?.user_metadata?.role === 'buyer' ? <BuyerDashboard user={user} /> : <Navigate to="/login" />} 
-          />
-          
-          <Route 
-            path="/admin" 
-            element={user?.user_metadata?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} 
+            path="/add-listing" 
+            element={user ? <AddListing user={user} /> : <Navigate to="/login" />} 
           />
 
+          {/* ROLE BASED */}
+          <Route 
+            path="/agent-portal" 
+            element={user?.user_metadata?.role === 'agent'
+              ? <AgentDashboard user={user} properties={properties} />
+              : <Navigate to="/login" />} 
+          />
+
+          <Route 
+            path="/buyer-dashboard" 
+            element={user?.user_metadata?.role === 'buyer'
+              ? <BuyerDashboard user={user} />
+              : <Navigate to="/login" />} 
+          />
+
+          <Route 
+            path="/admin" 
+            element={user?.user_metadata?.role === 'admin'
+              ? <AdminDashboard />
+              : <Navigate to="/" />} 
+          />
+
+          {/* FALLBACK */}
           <Route path="*" element={<Navigate to="/" />} />
+
         </Routes>
-        <Route path="/add-listing" element={<AddListing user={user} />} />
       </main>
-      
+
+      {/* FOOTER */}
       <footer style={{ padding: '60px 6%', backgroundColor: '#0f172a', color: 'white', textAlign: 'center' }}>
         <h2 style={{ marginBottom: '20px' }}>ModernEstate</h2>
-        <p style={{ color: '#94a3b8', marginBottom: '20px' }}>Helping you find the perfect place to call home.</p>
+        <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
+          Helping you find the perfect place to call home.
+        </p>
         <div style={{ borderTop: '1px solid #1e293b', paddingTop: '20px', fontSize: '0.9rem', color: '#64748b' }}>
           &copy; 2026 ModernEstate. All Rights Reserved.
         </div>
