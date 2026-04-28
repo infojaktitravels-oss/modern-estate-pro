@@ -15,7 +15,8 @@ import ListingForm from './components/ListingForm';
 import Settings from './components/Settings'; 
 import PropertyDetails from './components/PropertyDetails';
 import AdminDashboard from './components/AdminDashboard';
-import { supabase } from './supabaseClient'; 
+import { supabase } from './supabaseClient';
+import AddListing from './components/AddListing';
 
 function App() {
   // 1. Define all states at the very top
@@ -126,6 +127,7 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        <Route path="/add-listing" element={<AddListing user={user} />} />
       </main>
       
       <footer style={{ padding: '60px 6%', backgroundColor: '#0f172a', color: 'white', textAlign: 'center' }}>
