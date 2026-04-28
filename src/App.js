@@ -19,7 +19,21 @@ import { supabase } from './supabaseClient'; // Import your real database client
 
 function App() {
   // 1. User should be null (no user) or an object. Never an empty array.
-  const [user, setUser] = useState(null); 
+  useEffect(() => {
+  // Check session on load
+  const getUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    setUser(session?.user ?? null);
+  };
+  getUser();
+
+  // Listen for login/logout changes
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    setUser(session?.user ?? null);
+  });
+
+  return () => subscription.unsubscribe();
+}, []);
   
   // 2. Fixed the broken array syntax here
   const [properties, setProperties] = useState([
@@ -53,6 +67,23 @@ function App() {
   const addProperty = (newProp) => {
     setProperties([newProp, ...properties]);
   };
+  // 1. Add this inside your App() function, above the return
+useEffect(() => {
+  const fetchProperties = async () => {
+    const { data, error } = await supabase
+      .from('properties')
+      .select('*');
+    
+    if (error) {
+      console.error("Error fetching properties:", error);
+    } else if (data && data.length > 0) {
+      // If we have real houses in the DB, use them!
+      setProperties(data);
+    }
+  };
+
+  fetchProperties();
+}, []);
 
   return (
     <div style={{ margin: 0, padding: 0, fontFamily: 'Arial, sans-serif', scrollBehavior: 'smooth' }}>
