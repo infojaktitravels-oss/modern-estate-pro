@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { UploadCloud, Loader2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 const ListingForm = ({ user, addProperty }) => {
+  const navigate = useNavigate();
+
   const [form, setForm] = useState({
     title: '',
     price: '',
@@ -17,6 +20,13 @@ const ListingForm = ({ user, addProperty }) => {
   const [preview, setPreview] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // ✅ PROTECT PAGE
+  if (!user) {
+    alert("Please login first");
+    navigate('/login');
+    return null;
+  }
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -29,6 +39,7 @@ const ListingForm = ({ user, addProperty }) => {
     setPreview(previews);
   };
 
+  // ✅ UPLOAD IMAGES
   const uploadImages = async () => {
     const urls = [];
 
@@ -54,6 +65,7 @@ const ListingForm = ({ user, addProperty }) => {
     return urls;
   };
 
+  // ✅ SUBMIT
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -61,18 +73,17 @@ const ListingForm = ({ user, addProperty }) => {
     try {
       const imageUrls = await uploadImages();
 
-      // ✅ Insert property
       const { data, error } = await supabase
         .from('properties')
         .insert({
           title: form.title,
           price: form.price,
           location: form.location,
-          image_url: imageUrls[0], // main image
+          image: imageUrls[0] || null, // ✅ FIX column name
           beds: form.beds,
           baths: form.baths,
           sqft: form.sqft,
-          property_type: form.type,
+          type: form.type,
           agent_id: user.id,
         })
         .select()
@@ -80,7 +91,7 @@ const ListingForm = ({ user, addProperty }) => {
 
       if (error) throw error;
 
-      // ✅ Insert multiple images
+      // optional multi images table
       if (imageUrls.length > 0) {
         await supabase.from('property_images').insert(
           imageUrls.map(url => ({
@@ -93,6 +104,7 @@ const ListingForm = ({ user, addProperty }) => {
       addProperty(data);
       alert("Property added successfully!");
 
+      // reset
       setForm({
         title: '',
         price: '',
@@ -105,7 +117,10 @@ const ListingForm = ({ user, addProperty }) => {
       setImages([]);
       setPreview([]);
 
+      navigate('/agent-portal');
+
     } catch (err) {
+      console.error(err);
       alert(err.message);
     }
 
@@ -119,7 +134,6 @@ const ListingForm = ({ user, addProperty }) => {
 
         <form onSubmit={handleSubmit} style={styles.form}>
 
-          {/* INPUTS */}
           {['title', 'price', 'location'].map(field => (
             <input
               key={field}
@@ -138,21 +152,20 @@ const ListingForm = ({ user, addProperty }) => {
             <input name="sqft" placeholder="Sqft" onChange={handleChange} style={styles.input} />
           </div>
 
-          {/* IMAGE UPLOAD */}
+          {/* Upload */}
           <label style={styles.uploadBox}>
             <UploadCloud size={28} />
             <span>Upload Property Images</span>
             <input type="file" multiple hidden onChange={handleImageChange} />
           </label>
 
-          {/* PREVIEW */}
+          {/* Preview */}
           <div style={styles.previewGrid}>
             {preview.map((img, i) => (
               <img key={i} src={img} alt="preview" style={styles.previewImg} />
             ))}
           </div>
 
-          {/* BUTTON */}
           <button type="submit" style={styles.button} disabled={loading}>
             {loading ? <Loader2 className="spin" /> : 'Submit Property'}
           </button>
