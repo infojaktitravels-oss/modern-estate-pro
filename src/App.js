@@ -19,49 +19,46 @@ import AddListing from './components/AddListing';
 
 import { supabase } from './supabaseClient';
 
+
+// 🔐 PROTECTED ROUTE COMPONENT
+const ProtectedRoute = ({ user, children }) => {
+  return user ? children : <Navigate to="/login" />;
+};
+
+// 🧠 ROLE-BASED ROUTE
+const RoleRoute = ({ user, role, children }) => {
+  return user?.user_metadata?.role === role
+    ? children
+    : <Navigate to="/login" />;
+};
+
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [properties, setProperties] = useState([
-    { 
-      id: 1, 
-      title: 'Modern Sunset Villa (Sample)', 
-      price: '850000',
-      location: 'Malibu, CA', 
-      image: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800',
-      beds: '4', baths: '3', sqft: '2500', type: 'Residential'
-    }
-  ]);
+  const [properties, setProperties] = useState([]);
 
-  // 🔐 Auth state
+  // 🔐 Auth
   useEffect(() => {
-    const initializeAuth = async () => {
+    const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
       setLoading(false);
     };
 
-    initializeAuth();
+    init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // 📦 Fetch properties
+  // 📦 Fetch Properties
   useEffect(() => {
     const fetchProperties = async () => {
-      const { data, error } = await supabase
-        .from('properties')
-        .select('*');
-
-      if (error) {
-        console.error("Error fetching properties:", error);
-      } else if (data && data.length > 0) {
-        setProperties(data);
-      }
+      const { data, error } = await supabase.from('properties').select('*');
+      if (!error && data) setProperties(data);
     };
 
     fetchProperties();
@@ -71,7 +68,7 @@ function App() {
     setProperties((prev) => [newProp, ...prev]);
   };
 
-  // ⏳ Loading screen
+  // ⏳ Loading
   if (loading) {
     return (
       <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -81,67 +78,70 @@ function App() {
   }
 
   return (
-    <div style={{ margin: 0, padding: 0, fontFamily: 'Arial, sans-serif' }}>
+    <div style={{ fontFamily: 'Arial, sans-serif' }}>
       <Header user={user} setUser={setUser} />
 
       <main style={{ minHeight: '80vh' }}>
         <Routes>
 
-          {/* HOME */}
+          {/* 🏠 HOME */}
           <Route path="/" element={
             <>
               <Hero />
-              <section id="properties"><Properties properties={properties} /></section>
+              <section id="properties">
+                <Properties properties={properties} />
+              </section>
               <section id="about"><About /></section>
-              <section id="pricing"><Pricing user={user} setUser={setUser} /></section>
+              <section id="pricing">
+                <Pricing user={user} setUser={setUser} />
+              </section>
               <section id="contact"><Contact /></section>
             </>
           } />
 
-          {/* PUBLIC */}
+          {/* 🌐 PUBLIC */}
           <Route path="/login" element={<Auth setUser={setUser} />} />
-          <Route path="/pricing" element={<Pricing user={user} setUser={setUser} />} />
           <Route path="/property/:id" element={<PropertyDetails properties={properties} />} />
 
-          {/* PROTECTED */}
-          <Route 
-            path="/settings" 
-            element={user ? <Settings user={user} setUser={setUser} /> : <Navigate to="/login" />} 
-          />
+          {/* 🔐 PROTECTED */}
+          <Route path="/settings" element={
+            <ProtectedRoute user={user}>
+              <Settings user={user} setUser={setUser} />
+            </ProtectedRoute>
+          } />
 
-          <Route 
-            path="/list-property" 
-            element={user ? <ListingForm addProperty={addProperty} user={user} /> : <Navigate to="/login" />} 
-          />
+          <Route path="/list-property" element={
+            <ProtectedRoute user={user}>
+              <ListingForm addProperty={addProperty} user={user} />
+            </ProtectedRoute>
+          } />
 
-          <Route 
-            path="/add-listing" 
-            element={user ? <AddListing user={user} /> : <Navigate to="/login" />} 
-          />
+          <Route path="/add-listing" element={
+            <ProtectedRoute user={user}>
+              <AddListing user={user} />
+            </ProtectedRoute>
+          } />
 
-          {/* ROLE BASED */}
-          <Route 
-            path="/agent-portal" 
-            element={user?.user_metadata?.role === 'agent'
-              ? <AgentDashboard user={user} properties={properties} />
-              : <Navigate to="/login" />} 
-          />
+          {/* 👤 ROLE BASED */}
+          <Route path="/agent-portal" element={
+            <RoleRoute user={user} role="agent">
+              <AgentDashboard user={user} properties={properties} />
+            </RoleRoute>
+          } />
 
-          <Route 
-            path="/buyer-dashboard" 
-            element={user?.user_metadata?.role === 'buyer'
-              ? <BuyerDashboard user={user} />
-              : <Navigate to="/login" />} 
-          />
+          <Route path="/buyer-dashboard" element={
+            <RoleRoute user={user} role="buyer">
+              <BuyerDashboard user={user} />
+            </RoleRoute>
+          } />
 
-          <Route 
-            path="/admin" 
-            element={user?.user_metadata?.role === 'admin'
-              ? <AdminDashboard />
-              : <Navigate to="/" />} 
-          />
+          <Route path="/admin" element={
+            <RoleRoute user={user} role="admin">
+              <AdminDashboard />
+            </RoleRoute>
+          } />
 
-          {/* FALLBACK */}
+          {/* 🔁 FALLBACK */}
           <Route path="*" element={<Navigate to="/" />} />
 
         </Routes>
@@ -149,12 +149,12 @@ function App() {
 
       {/* FOOTER */}
       <footer style={{ padding: '60px 6%', backgroundColor: '#0f172a', color: 'white', textAlign: 'center' }}>
-        <h2 style={{ marginBottom: '20px' }}>ModernEstate</h2>
-        <p style={{ color: '#94a3b8', marginBottom: '20px' }}>
+        <h2>ModernEstate</h2>
+        <p style={{ color: '#94a3b8' }}>
           Helping you find the perfect place to call home.
         </p>
-        <div style={{ borderTop: '1px solid #1e293b', paddingTop: '20px', fontSize: '0.9rem', color: '#64748b' }}>
-          &copy; 2026 ModernEstate. All Rights Reserved.
+        <div style={{ marginTop: '20px', fontSize: '0.9rem', color: '#64748b' }}>
+          © 2026 ModernEstate. All Rights Reserved.
         </div>
       </footer>
     </div>
