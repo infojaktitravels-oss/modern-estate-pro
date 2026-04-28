@@ -15,75 +15,69 @@ import ListingForm from './components/ListingForm';
 import Settings from './components/Settings'; 
 import PropertyDetails from './components/PropertyDetails';
 import AdminDashboard from './components/AdminDashboard';
-import { supabase } from './supabaseClient'; // Import your real database client
+import { supabase } from './supabaseClient'; 
 
 function App() {
-  // 1. User should be null (no user) or an object. Never an empty array.
-  useEffect(() => {
-  // Check session on load
-  const getUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    setUser(session?.user ?? null);
-  };
-  getUser();
-
-  // Listen for login/logout changes
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-    setUser(session?.user ?? null);
-  });
-
-  return () => subscription.unsubscribe();
-}, []);
-  
-  // 2. Fixed the broken array syntax here
+  // 1. Define all states at the very top
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState([
     { 
       id: 1, 
-      title: 'Modern Sunset Villa', 
+      title: 'Modern Sunset Villa (Sample)', 
       price: '$850,000', 
       location: 'Malibu, CA', 
       image: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=800',
       beds: '4', baths: '3', sqft: '2,500', type: 'Residential'
-    },
-    { 
-      id: 2, 
-      title: 'Luxury Skyline Apartment', 
-      price: '$1,200,000', 
-      location: 'New York, NY', 
-      image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800',
-      beds: '2', baths: '2', sqft: '1,100', type: 'Commercial'
     }
   ]);
 
-  // 3. REALITY CHECK: Fetch data from Supabase on load
+  // 2. Single Effect for Auth: Handles initial session and real-time changes
   useEffect(() => {
-    const checkUser = async () => {
+    const initializeAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) setUser(session.user);
+      setUser(session?.user ?? null);
+      setLoading(false);
     };
-    checkUser();
+
+    initializeAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 3. Single Effect for Data: Fetches real properties from Supabase
+  useEffect(() => {
+    const fetchProperties = async () => {
+      const { data, error } = await supabase
+        .from('properties')
+        .select('*');
+      
+      if (error) {
+        console.error("Error fetching properties:", error);
+      } else if (data && data.length > 0) {
+        setProperties(data);
+      }
+    };
+
+    fetchProperties();
   }, []);
 
   const addProperty = (newProp) => {
-    setProperties([newProp, ...properties]);
-  };
-  // 1. Add this inside your App() function, above the return
-useEffect(() => {
-  const fetchProperties = async () => {
-    const { data, error } = await supabase
-      .from('properties')
-      .select('*');
-    
-    if (error) {
-      console.error("Error fetching properties:", error);
-    } else if (data && data.length > 0) {
-      // If we have real houses in the DB, use them!
-      setProperties(data);
-    }
+    setProperties((prev) => [newProp, ...prev]);
   };
 
-  fetchProperties();
-}, []);
+  // 4. Loading screen prevents "flicker" while checking if user is logged in
+  if (loading) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <h2>Loading ModernEstate...</h2>
+      </div>
+    );
+  }
 
   return (
     <div style={{ margin: 0, padding: 0, fontFamily: 'Arial, sans-serif', scrollBehavior: 'smooth' }}>
@@ -105,6 +99,7 @@ useEffect(() => {
           <Route path="/pricing" element={<Pricing user={user} setUser={setUser} />} />
           <Route path="/property/:id" element={<PropertyDetails properties={properties} />} />
 
+          {/* PROTECTED ROUTES */}
           <Route 
             path="/settings" 
             element={user ? <Settings user={user} setUser={setUser} /> : <Navigate to="/login" />} 
@@ -114,18 +109,19 @@ useEffect(() => {
             element={user ? <ListingForm addProperty={addProperty} user={user} /> : <Navigate to="/login" />} 
           />
           
+          {/* ROLE-BASED DASHBOARDS */}
           <Route 
             path="/agent-portal" 
-            element={user?.role === 'agent' ? <AgentDashboard user={user} properties={properties} /> : <Navigate to="/login" />} 
+            element={user?.user_metadata?.role === 'agent' ? <AgentDashboard user={user} properties={properties} /> : <Navigate to="/login" />} 
           />
           <Route 
             path="/buyer-dashboard" 
-            element={user?.role === 'buyer' ? <BuyerDashboard user={user} /> : <Navigate to="/login" />} 
+            element={user?.user_metadata?.role === 'buyer' ? <BuyerDashboard user={user} /> : <Navigate to="/login" />} 
           />
           
           <Route 
             path="/admin" 
-            element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} 
+            element={user?.user_metadata?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} 
           />
 
           <Route path="*" element={<Navigate to="/" />} />
