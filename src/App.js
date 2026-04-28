@@ -14,13 +14,14 @@ import BuyerDashboard from './components/BuyerDashboard';
 import ListingForm from './components/ListingForm';
 import Settings from './components/Settings'; 
 import PropertyDetails from './components/PropertyDetails';
-import AdminDashboard from './components/AdminDashboard'; // You'll create this file next
+import AdminDashboard from './components/AdminDashboard';
+import { supabase } from './supabaseClient'; // Import your real database client
 
 function App() {
-  // Reality Check: In a real app, 'user' comes from Supabase auth session
+  // 1. User should be null (no user) or an object. Never an empty array.
   const [user, setUser] = useState(null); 
   
-  // Reality Check: These will eventually be fetched via supabase.from('properties').select('*')
+  // 2. Fixed the broken array syntax here
   const [properties, setProperties] = useState([
     { 
       id: 1, 
@@ -40,8 +41,16 @@ function App() {
     }
   ]);
 
+  // 3. REALITY CHECK: Fetch data from Supabase on load
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) setUser(session.user);
+    };
+    checkUser();
+  }, []);
+
   const addProperty = (newProp) => {
-    // Real logic: await supabase.from('properties').insert([newProp])
     setProperties([newProp, ...properties]);
   };
 
@@ -51,7 +60,6 @@ function App() {
       
       <main style={{ minHeight: '80vh' }}>
         <Routes>
-          {/* LANDING PAGE */}
           <Route path="/" element={
             <>
               <Hero />
@@ -62,12 +70,10 @@ function App() {
             </>
           } />
           
-          {/* PUBLIC ROUTES */}
           <Route path="/login" element={<Auth setUser={setUser} />} />
           <Route path="/pricing" element={<Pricing user={user} setUser={setUser} />} />
           <Route path="/property/:id" element={<PropertyDetails properties={properties} />} />
 
-          {/* PROTECTED ROUTES (Requires Login) */}
           <Route 
             path="/settings" 
             element={user ? <Settings user={user} setUser={setUser} /> : <Navigate to="/login" />} 
@@ -77,7 +83,6 @@ function App() {
             element={user ? <ListingForm addProperty={addProperty} user={user} /> : <Navigate to="/login" />} 
           />
           
-          {/* ROLE-BASED DASHBOARDS */}
           <Route 
             path="/agent-portal" 
             element={user?.role === 'agent' ? <AgentDashboard user={user} properties={properties} /> : <Navigate to="/login" />} 
@@ -87,13 +92,11 @@ function App() {
             element={user?.role === 'buyer' ? <BuyerDashboard user={user} /> : <Navigate to="/login" />} 
           />
           
-          {/* ADMIN ROUTE (The Reality Check) */}
           <Route 
             path="/admin" 
             element={user?.role === 'admin' ? <AdminDashboard /> : <Navigate to="/" />} 
           />
 
-          {/* 404 REDIRECT */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
