@@ -25,13 +25,6 @@ const AgentDashboard = ({ user }) => {
         .from('leads')
         .select('*')
         .eq('agent_id', user.id);
-
-      // ✅ Notifications (optional)
-      const { data: notificationsData } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id);
-
       // ✅ Set state
       setStats({
         listings: propertiesData?.length || 0,
