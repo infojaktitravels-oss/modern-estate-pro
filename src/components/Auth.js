@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Globe, ArrowRight } from 'lucide-react'; 
+import { Loader2, Globe } from 'lucide-react'; // ONLY import what you are using
 import { supabase } from '../supabaseClient';
 
 const Auth = () => {
@@ -22,7 +22,6 @@ const Auth = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // --- GOOGLE LOGIN FUNCTION ---
   const handleGoogleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -30,55 +29,55 @@ const Auth = () => {
     if (error) alert(error.message);
   };
 
-  // --- EMAIL/PASSWORD AUTH ---
   const handleAuth = async (e) => {
-  e.preventDefault();
-  setLoading(true);
+    e.preventDefault();
+    setLoading(true);
 
-  try {
-    if (isLogin) {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
-      if (error) throw error;
-      const userRole = data.user.user_metadata?.role;
-      navigate(userRole === 'agent' ? '/agent-portal' : '/buyer-dashboard');
-    } else {
-      if (formData.password !== formData.confirmPassword) {
-        alert("Passwords do not match!");
-        setLoading(false);
-        return;
-      }
-
-      const { error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone: formData.phone,
-            role: formData.role,
-          }
+    try {
+      if (isLogin) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+        if (error) throw error;
+        
+        const userRole = data.user.user_metadata?.role;
+        navigate(userRole === 'agent' ? '/agent-portal' : '/buyer-dashboard');
+      } else {
+        if (formData.password !== formData.confirmPassword) {
+          alert("Passwords do not match!");
+          setLoading(false);
+          return;
         }
-      });
-      if (error) throw error;
-      alert("Registration successful! Please check your email.");
+
+        const { error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: {
+              first_name: formData.firstName,
+              last_name: formData.lastName,
+              phone: formData.phone,
+              role: formData.role,
+            }
+          }
+        });
+        if (error) throw error;
+        alert("Registration successful! Check your email for a verification link.");
+      }
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("Auth Error:", err);
-    alert("Connection Error: " + err.message);
-  } finally {
-    setLoading(false); // This ensures the spinner stops no matter what
-  }
-};
+  };
 
   return (
     <div style={styles.container}>
       <div style={styles.authCard}>
         <h2 style={styles.title}>{isLogin ? 'Welcome Back' : 'Create Account'}</h2>
         
+        {/* Fixed: Using Globe instead of Chrome */}
         <button onClick={handleGoogleLogin} style={styles.googleBtn} type="button">
           <Globe size={20} /> Continue with Google
         </button>
@@ -109,11 +108,7 @@ const Auth = () => {
           )}
 
           <button type="submit" style={styles.submitBtn} disabled={loading}>
-            {loading ? <Loader2 style={{animation: 'spin 1s linear infinite'}} /> : (
-              <>
-                {isLogin ? 'Sign In' : 'Register'} <ArrowRight size={18} style={{marginLeft: '8px'}} />
-              </>
-            )}
+            {loading ? <Loader2 style={{ animation: 'spin 1s linear infinite' }} /> : (isLogin ? 'Sign In' : 'Register')}
           </button>
         </form>
 
@@ -128,7 +123,6 @@ const Auth = () => {
   );
 };
 
-// Moving styles down here fixes the "used before defined" warning
 const styles = {
   container: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9', padding: '20px' },
   authCard: { backgroundColor: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', width: '100%', maxWidth: '450px' },
