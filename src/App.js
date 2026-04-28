@@ -16,7 +16,7 @@ import Settings from './components/Settings';
 import PropertyDetails from './components/PropertyDetails';
 import AdminDashboard from './components/AdminDashboard';
 import AddListing from './components/AddListing';
-
+import EditProperty from './components/EditProperty';
 import { supabase } from './supabaseClient';
 
 
@@ -141,8 +141,17 @@ function App() {
             </RoleRoute>
           } />
 
+          <Route path="/edit/:id" 
+  element={
+    <ProtectedRoute user={user}>
+      <EditProperty user={user} />
+    </ProtectedRoute>
+  } 
+/>
+
           {/* 🔁 FALLBACK */}
           <Route path="*" element={<Navigate to="/" />} />
+          
 
         </Routes>
       </main>

@@ -3,123 +3,132 @@ import { supabase } from '../supabaseClient';
 import { LayoutDashboard, Building2, Bell, TrendingUp, Users, DollarSign } from 'lucide-react';
 
 const AgentDashboard = ({ user }) => {
+
+  // ✅ STATE (fixes setLeads error)
   const [stats, setStats] = useState({ listings: 0, leads: 0, sales: 0 });
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ FETCH DATA (fixed all errors inside)
   useEffect(() => {
-    const fetchAgentData = async () => {
-      // 1. Fetch real properties owned by this agent
-      const { data: propData } = await supabase
+    const fetchData = async () => {
+      if (!user) return;
+
+      // ✅ Properties
+      const { data: propertiesData } = await supabase
         .from('properties')
-        .select('*', { count: 'exact' })
+        .select('*')
         .eq('agent_id', user.id);
 
-      // 2. Fetch leads for this agent
-      const { data: leadData } = await supabase
+      // ✅ Leads
+      const { data: leadsData } = await supabase
         .from('leads')
         .select('*')
-        .eq('agent_id', user.id)
-        .order('created_at', { ascending: false });
+        .eq('agent_id', user.id);
 
+      // ✅ Notifications (optional)
+      const { data: notificationsData } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id);
+
+      // ✅ Set state
       setStats({
-        listings: propData?.length || 0,
-        leads: leadData?.length || 0,
-        sales: 0 // You can calculate this from a 'sales' table later
+        listings: propertiesData?.length || 0,
+        leads: leadsData?.length || 0,
+        sales: 0
       });
-      setLeads(leadData || []);
+
+      setLeads(leadsData || []);
       setLoading(false);
     };
 
-    if (user) fetchAgentData();
+    fetchData();
   }, [user]);
 
-  if (loading) return <div style={styles.loading}>Updating Dashboard...</div>;
+  // ✅ LOADING UI
+  if (loading) {
+    return <div style={{ padding: '100px', textAlign: 'center' }}>Loading Dashboard...</div>;
+  }
 
   return (
     <div style={styles.container}>
+      
+      {/* SIDEBAR */}
       <aside style={styles.sidebar}>
-        <div style={styles.sidebarBrand}>AGENT MENU</div>
-        <nav style={styles.nav}>
-          <div style={styles.navItemActive}><LayoutDashboard size={20} /> Dashboard</div>
-          <div style={styles.navItem}><Building2 size={20} /> My Properties</div>
-          <div style={styles.navItem}><Bell size={20} /> Notifications</div>
-        </nav>
+        <h3 style={{ marginBottom: '20px' }}>Agent Panel</h3>
+        <div style={styles.navItem}><LayoutDashboard size={18}/> Dashboard</div>
+        <div style={styles.navItem}><Building2 size={18}/> Properties</div>
+        <div style={styles.navItem}><Bell size={18}/> Notifications</div>
       </aside>
 
+      {/* MAIN */}
       <main style={styles.main}>
-        <h1 style={styles.welcome}>Welcome back, {user?.user_metadata?.first_name || 'Agent'}</h1>
-        
-        <div style={styles.statsGrid}>
-          <StatCard icon={<Building2 color="#2563eb"/>} label="Active Listings" value={stats.listings} color="#eff6ff" />
-          <StatCard icon={<Users color="#059669"/>} label="Total Leads" value={stats.leads} color="#ecfdf5" />
-          <StatCard icon={<DollarSign color="#d97706"/>} label="Total Sales" value={`$${stats.sales}M`} color="#fffbeb" />
-          <StatCard icon={<TrendingUp color="#7c3aed"/>} label="Performance" value="+14%" color="#f5f3ff" />
+        <h1>Welcome, {user?.email}</h1>
+
+        {/* STATS */}
+        <div style={styles.grid}>
+          <Card icon={<Building2 />} title="Listings" value={stats.listings} />
+          <Card icon={<Users />} title="Leads" value={stats.leads} />
+          <Card icon={<DollarSign />} title="Sales" value={`$${stats.sales}`} />
+          <Card icon={<TrendingUp />} title="Growth" value="+14%" />
         </div>
 
-        <div style={styles.tableCard}>
-          <h3 style={styles.tableTitle}>Recent Leads</h3>
+        {/* LEADS TABLE */}
+        <div style={styles.tableBox}>
+          <h3>Recent Leads</h3>
+
           <table style={styles.table}>
             <thead>
-              <tr style={styles.thRow}>
-                <th style={styles.th}>Name</th>
-                <th style={styles.th}>Interest</th>
-                <th style={styles.th}>Status</th>
-                <th style={styles.th}>Date</th>
+              <tr>
+                <th>Name</th>
+                <th>Interest</th>
+                <th>Date</th>
               </tr>
             </thead>
+
             <tbody>
-              {leads.map((lead) => (
-                <tr key={lead.id} style={styles.tr}>
-                  <td style={styles.td}>{lead.client_name}</td>
-                  <td style={styles.td}>{lead.property_title}</td>
-                  <td style={styles.td}><span style={styles.badge}>{lead.status}</span></td>
-                  <td style={styles.td}>{new Date(lead.created_at).toLocaleDateString()}</td>
+              {leads.length > 0 ? (
+                leads.map((lead) => (
+                  <tr key={lead.id}>
+                    <td>{lead.client_name}</td>
+                    <td>{lead.property_title}</td>
+                    <td>{new Date(lead.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="3" style={{ textAlign: 'center' }}>No leads found</td>
                 </tr>
-              ))}
-              {leads.length === 0 && <tr><td colSpan="4" style={styles.empty}>No leads yet.</td></tr>}
+              )}
             </tbody>
           </table>
         </div>
+
       </main>
     </div>
   );
 };
 
-// Simplified StatCard Component
-const StatCard = ({ icon, label, value, color }) => (
-  <div style={{...styles.card, backgroundColor: 'white'}}>
-    <div style={{...styles.iconBox, backgroundColor: color}}>{icon}</div>
-    <div>
-      <p style={styles.cardLabel}>{label}</p>
-      <h2 style={styles.cardValue}>{value}</h2>
-    </div>
+// ✅ SMALL CARD COMPONENT
+const Card = ({ icon, title, value }) => (
+  <div style={styles.card}>
+    <div>{icon}</div>
+    <h4>{title}</h4>
+    <h2>{value}</h2>
   </div>
 );
 
+// ✅ STYLES
 const styles = {
-  container: { display: 'flex', minHeight: '100vh', backgroundColor: '#f8fafc' },
-  sidebar: { width: '260px', backgroundColor: '#1e293b', color: 'white', padding: '24px' },
-  sidebarBrand: { fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', marginBottom: '24px', letterSpacing: '1px' },
-  nav: { display: 'flex', flexDirection: 'column', gap: '8px' },
-  navItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '8px', cursor: 'pointer', color: '#94a3b8' },
-  navItemActive: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '8px', backgroundColor: '#334155', color: 'white' },
-  main: { flex: 1, padding: '40px' },
-  welcome: { fontSize: '1.8rem', color: '#0f172a', marginBottom: '32px' },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px', marginBottom: '40px' },
-  card: { padding: '24px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
-  iconBox: { padding: '12px', borderRadius: '12px' },
-  cardLabel: { fontSize: '0.875rem', color: '#64748b', margin: 0 },
-  cardValue: { fontSize: '1.5rem', fontWeight: 'bold', color: '#0f172a', margin: 0 },
-  tableCard: { backgroundColor: 'white', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
-  tableTitle: { marginBottom: '20px', color: '#0f172a' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  thRow: { borderBottom: '1px solid #f1f5f9' },
-  th: { textAlign: 'left', padding: '12px', color: '#64748b', fontSize: '0.875rem' },
-  td: { padding: '16px 12px', borderBottom: '1px solid #f8fafc', fontSize: '0.9rem', color: '#334155' },
-  badge: { backgroundColor: '#f1f5f9', padding: '4px 10px', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569' },
-  loading: { padding: '100px', textAlign: 'center', fontSize: '1.2rem' },
-  empty: { textAlign: 'center', padding: '40px', color: '#94a3b8' }
+  container: { display: 'flex', minHeight: '100vh' },
+  sidebar: { width: '220px', background: '#1e293b', color: 'white', padding: '20px' },
+  navItem: { marginBottom: '10px', display: 'flex', gap: '10px', cursor: 'pointer' },
+  main: { flex: 1, padding: '40px', background: '#f1f5f9' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '20px', marginTop: '20px' },
+  card: { background: 'white', padding: '20px', borderRadius: '10px' },
+  tableBox: { marginTop: '40px', background: 'white', padding: '20px', borderRadius: '10px' },
+  table: { width: '100%', borderCollapse: 'collapse' }
 };
 
 export default AgentDashboard;
