@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
-import { User, Mail, Phone, CreditCard, Shield, Camera } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import { User, CreditCard } from 'lucide-react'; // Removed Mail, Phone, and Shield
 
-const Settings = ({ user, setUser }) => {
+const Settings = ({ user }) => {
   const [activeTab, setActiveTab] = useState('profile');
 
-  // SAFETY CHECK: If someone tries to go to /settings without being logged in
+  // CRITICAL FIX: If user is null (loading or logged out), show a message instead of a blank screen
   if (!user) {
-    return <Navigate to="/login" />;
+    return (
+      <div style={{ padding: '150px 6%', textAlign: 'center' }}>
+        <h2>Access Denied</h2>
+        <p>Please log in to view your settings.</p>
+        <button onClick={() => window.location.href = '/login'} style={styles.uploadBtn}>Go to Login</button>
+      </div>
+    );
   }
 
   return (
     <div style={{ padding: '100px 6%', backgroundColor: '#f8fafc', minHeight: '100vh' }}>
       <div style={styles.settingsLayout}>
-        {/* Sidebar */}
         <aside style={styles.sidebar}>
           <button style={activeTab === 'profile' ? styles.activeTab : styles.tab} onClick={() => setActiveTab('profile')}>
             <User size={18} /> Profile
@@ -23,31 +27,14 @@ const Settings = ({ user, setUser }) => {
           </button>
         </aside>
 
-        {/* Content Area */}
         <div style={styles.contentCard}>
           {activeTab === 'profile' && (
             <div style={styles.section}>
               <h2 style={styles.sectionTitle}>Profile Settings</h2>
-              <div style={styles.avatarUpload}>
-                <div style={styles.largeAvatar}>{user.name ? user.name.charAt(0) : 'U'}</div>
-                <button style={styles.uploadBtn}><Camera size={14} /> Change Photo</button>
-              </div>
               <div style={styles.inputGrid}>
-                <div style={styles.field}><label style={styles.label}>Full Name</label><input style={styles.input} defaultValue={user.name} /></div>
-                <div style={styles.field}><label style={styles.label}>Email</label><input style={styles.input} defaultValue={user.email} disabled /></div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'subscription' && (
-            <div style={styles.section}>
-              <h2 style={styles.sectionTitle}>My Subscription</h2>
-              <div style={styles.planCard}>
-                <div style={{ flex: 1 }}>
-                  <h3 style={{ color: '#2563eb', textTransform: 'capitalize' }}>{user.plan || 'Basic'} Plan</h3>
-                  <p style={{ fontSize: '0.9rem', color: '#64748b' }}>Status: Active</p>
-                </div>
-                <div style={styles.priceTag}>{user.plan === 'pro' ? '$49' : '$0'}<span style={{fontSize: '1rem'}}>/mo</span></div>
+                {/* Use optional chaining (?.) to prevent crashes */}
+                <div style={styles.field}><label style={styles.label}>Email</label><input style={styles.input} value={user?.email || ''} readOnly /></div>
+                <div style={styles.field}><label style={styles.label}>Role</label><input style={styles.input} value={user?.user_metadata?.role || 'User'} readOnly /></div>
               </div>
             </div>
           )}
@@ -57,7 +44,6 @@ const Settings = ({ user, setUser }) => {
   );
 };
 
-// ... keep the styles object from the previous message ...
 const styles = {
   settingsLayout: { display: 'grid', gridTemplateColumns: '250px 1fr', gap: '40px', maxWidth: '1000px', margin: '0 auto' },
   sidebar: { display: 'flex', flexDirection: 'column', gap: '10px' },

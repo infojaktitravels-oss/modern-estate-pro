@@ -1,6 +1,5 @@
 import React from 'react';
-import { Users, Home, DollarSign, ShieldCheck } from 'lucide-react';
-
+import { Users, Home, DollarSign } from 'lucide-react'; // Removed ShieldCheck
 const AdminDashboard = ({ allProperties, allUsers }) => {
   return (
     <div style={{ padding: '100px 6%', backgroundColor: '#f1f5f9', minHeight: '100vh' }}>

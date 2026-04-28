@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Bed, Bath, Maximize, Home, CheckCircle } from 'lucide-react';
-
+import { Camera, Bed, Bath, Maximize } from 'lucide-react';
 const ListingForm = ({ addProperty, user }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
