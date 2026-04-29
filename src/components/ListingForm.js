@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UploadCloud, Loader2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
@@ -20,12 +20,13 @@ const ListingForm = ({ user, addProperty }) => {
   const [preview, setPreview] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // ✅ PROTECT PAGE
-  if (!user) {
-    alert("Please login first");
-    navigate('/login');
-    return null;
-  }
+  // ✅ FIX: proper redirect (NOT inside render)
+  useEffect(() => {
+    if (!user) {
+      alert("Please login first");
+      navigate('/login');
+    }
+  }, [user, navigate]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -34,12 +35,10 @@ const ListingForm = ({ user, addProperty }) => {
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     setImages(files);
-
-    const previews = files.map(file => URL.createObjectURL(file));
-    setPreview(previews);
+    setPreview(files.map(file => URL.createObjectURL(file)));
   };
 
-  // ✅ UPLOAD IMAGES
+  // ✅ Upload images
   const uploadImages = async () => {
     const urls = [];
 
@@ -65,7 +64,6 @@ const ListingForm = ({ user, addProperty }) => {
     return urls;
   };
 
-  // ✅ SUBMIT
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -73,17 +71,18 @@ const ListingForm = ({ user, addProperty }) => {
     try {
       const imageUrls = await uploadImages();
 
+      // ✅ FIX: correct column name (image_url)
       const { data, error } = await supabase
         .from('properties')
         .insert({
           title: form.title,
           price: form.price,
           location: form.location,
-          image: imageUrls[0] || null, // ✅ FIX column name
+          image_url: imageUrls[0] || null, // ✅ correct
           beds: form.beds,
           baths: form.baths,
           sqft: form.sqft,
-          type: form.type,
+          property_type: form.type,
           agent_id: user.id,
         })
         .select()
@@ -91,12 +90,12 @@ const ListingForm = ({ user, addProperty }) => {
 
       if (error) throw error;
 
-      // optional multi images table
+      // ✅ FIX: insert ALL images correctly
       if (imageUrls.length > 0) {
         await supabase.from('property_images').insert(
           imageUrls.map(url => ({
             property_id: data.id,
-            image_url: url,
+            image_url: url, // ✅ correct (not imageUrls[0])
           }))
         );
       }
@@ -104,7 +103,7 @@ const ListingForm = ({ user, addProperty }) => {
       addProperty(data);
       alert("Property added successfully!");
 
-      // reset
+      // reset form
       setForm({
         title: '',
         price: '',
