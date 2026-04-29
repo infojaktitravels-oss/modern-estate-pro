@@ -10,28 +10,23 @@ const AddListing = ({ user }) => {
   const [previews, setPreviews] = useState([]); 
   const [formData, setFormData] = useState({
     title: '', price: '', beds: '', baths: '', sqft: '', 
-    type: 'Residential', address: '', city: '', description: ''
+    type: 'Residential', address: '', description: ''
   });
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // --- IMAGE HANDLING ---
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     setImages([...images, ...files]);
-    
     const newPreviews = files.map(file => URL.createObjectURL(file));
     setPreviews([...previews, ...newPreviews]);
   };
 
   const removeImage = (index) => {
-    const updatedImages = images.filter((_, i) => i !== index);
-    const updatedPreviews = previews.filter((_, i) => i !== index);
-    setImages(updatedImages);
-    setPreviews(updatedPreviews);
+    setImages(images.filter((_, i) => i !== index));
+    setPreviews(previews.filter((_, i) => i !== index));
   };
 
-  // --- SUBMIT TO SUPABASE ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (images.length === 0) return alert("Please upload at least one image.");
@@ -40,7 +35,6 @@ const AddListing = ({ user }) => {
     try {
       const uploadedUrls = [];
 
-      // 1. Upload to Supabase Storage Bucket 'property-images'
       for (const file of images) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
@@ -59,16 +53,19 @@ const AddListing = ({ user }) => {
         uploadedUrls.push(publicUrl);
       }
 
-      // 2. Save Data to 'properties' Table
+      // SYNCED WITH SUPABASE TABLE (image_9851db.png)
       const { error } = await supabase.from('properties').insert([{
-        ...formData,
+        title: formData.title,
+        price: formData.price.toString(), // Database uses text for price
+        location: formData.address,       // Maps 'address' to 'location' column
+        beds: parseInt(formData.beds) || 0,
+        baths: parseInt(formData.baths) || 0,
+        sqft: parseInt(formData.sqft) || 0,
+        image_url: uploadedUrls[0],       // Primary image column
+        images: uploadedUrls,             // Array column for all photos
+        property_type: formData.type,     // Maps 'type' to 'property_type' column
         agent_id: user.id,
-        image_url: uploadedUrls[0], 
-        all_images: uploadedUrls,    
-        price: parseFloat(formData.price),
-        beds: parseInt(formData.beds),
-        baths: parseInt(formData.baths),
-        sqft: parseInt(formData.sqft)
+        description: formData.description
       }]);
 
       if (error) throw error;
