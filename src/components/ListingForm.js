@@ -45,22 +45,24 @@ const ListingForm = ({ user, addProperty }) => {
   for (let file of images) {
     const fileName = `${Date.now()}-${file.name}`;
 
-    const { error } = await supabase.storage
-      .from('property-images') // ✅ EXACT bucket name
+    const { error: uploadError } = await supabase.storage
+      .from('property-images')
       .upload(fileName, file);
 
-    if (error) {
-      console.error("UPLOAD ERROR:", error.message);
+    if (uploadError) {
+      console.error("UPLOAD ERROR:", uploadError);
       continue;
     }
 
-    const { data: publicData } = supabase.storage
+    const { data: publicUrlData } = supabase.storage
       .from('property-images')
       .getPublicUrl(fileName);
 
-    console.log("IMAGE URL:", publicData.publicUrl); // ✅ debug
+    console.log("PUBLIC URL:", publicUrlData);
 
-    urls.push(publicData.publicUrl);
+    if (publicUrlData?.publicUrl) {
+      urls.push(publicUrlData.publicUrl);
+    }
   }
 
   return urls;
@@ -72,6 +74,7 @@ const ListingForm = ({ user, addProperty }) => {
 
     try {
       const imageUrls = await uploadImages();
+      console.log("FINAL IMAGE URLS:", imageUrls);
 
       // ✅ FIX: correct column name (image_url)
       const { data, error } = await supabase
