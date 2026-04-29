@@ -30,18 +30,18 @@ const RoleRoute = ({ user, role, children }) => {
   if (!user) return <Navigate to="/login" replace />;
   return user?.user_metadata?.role === role
     ? children
-    : <Navigate to="/" replace />; // Redirect to home if wrong role
+    : <Navigate to="/" replace />; 
 };
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState([]);
+  const [filteredProperties, setFilteredProperties] = useState([]); // Fixed typo
   const navigate = useNavigate();
 
   // 🔐 Auth Listener & Initialization
   useEffect(() => {
-    // Check initial session
     const getInitialSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
@@ -50,38 +50,50 @@ function App() {
 
     getInitialSession();
 
-    // Listen for Auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth Event Triggered:", event);
-      
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         setUser(session?.user ?? null);
       }
       
       if (event === 'SIGNED_OUT') {
         setUser(null);
-        setProperties([]); // Clear sensitive data from state
-        navigate('/login'); // Force redirect
+        setProperties([]);
+        setFilteredProperties([]);
+        navigate('/login');
       }
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   // 📦 Fetch Properties
   useEffect(() => {
     const fetchProperties = async () => {
       const { data, error } = await supabase.from('properties').select('*');
-      if (!error && data) setProperties(data);
+      if (!error && data) {
+        setProperties(data);
+        setFilteredProperties(data); // Initialize filtered list
+      }
     };
-
     fetchProperties();
   }, []);
 
+  // 🔍 Search Logic
+  const handleSearch = (query) => {
+    if (!query || query.trim() === "") {
+      setFilteredProperties(properties);
+      return;
+    }
+    const filtered = properties.filter(p => 
+      p.location?.toLowerCase().includes(query.toLowerCase()) || 
+      p.title?.toLowerCase().includes(query.toLowerCase())
+    );
+    setFilteredProperties(filtered);
+  };
+
   const addProperty = (newProp) => {
     setProperties((prev) => [newProp, ...prev]);
+    setFilteredProperties((prev) => [newProp, ...prev]);
   };
 
   if (loading) {
@@ -101,9 +113,11 @@ function App() {
           {/* 🏠 HOME */}
           <Route path="/" element={
             <>
-              <Hero />
+              {/* Pass handleSearch to Hero */}
+              <Hero onSearch={handleSearch} /> 
               <section id="properties">
-                <Properties properties={properties} />
+                {/* Use filteredProperties instead of properties */}
+                <Properties properties={filteredProperties} />
               </section>
               <section id="about"><About /></section>
               <section id="pricing">
@@ -161,12 +175,10 @@ function App() {
             </RoleRoute>
           } />
 
-          {/* 🔁 FALLBACK */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
-      {/* FOOTER */}
       <footer style={{ padding: '80px 6%', backgroundColor: '#0f172a', color: 'white', textAlign: 'center' }}>
         <h2 style={{ fontWeight: '800', marginBottom: '10px' }}>ModernEstate</h2>
         <p style={{ color: '#94a3b8', maxWidth: '400px', margin: '0 auto 20px' }}>

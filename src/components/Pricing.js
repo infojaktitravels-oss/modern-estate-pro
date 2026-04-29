@@ -1,11 +1,14 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom'; // Added for navigation
 import { Check, Zap, Building2, Crown } from 'lucide-react';
 
-const Pricing = ({ user, setUser }) => {
+const Pricing = ({ user }) => {
+  const navigate = useNavigate(); // Initialize navigation
+
   const plans = [
     {
       name: 'Starter',
-      price: '0',
+      price: 0, // Changed to number for easier logic
       description: 'Perfect for individual sellers testing the market.',
       icon: <Building2 size={24} color="#64748b" />,
       features: ['1 Property Listing', 'Basic Support', 'Standard Analytics', 'Mobile App Access'],
@@ -13,7 +16,7 @@ const Pricing = ({ user, setUser }) => {
     },
     {
       name: 'Professional',
-      price: '49',
+      price: 49, // Changed to number
       description: 'The best choice for active real estate agents.',
       icon: <Zap size={24} color="#2563eb" />,
       features: ['10 Property Listings', 'Priority Support', 'Advanced Analytics', 'Featured Badge', 'Lead Management'],
@@ -22,7 +25,7 @@ const Pricing = ({ user, setUser }) => {
     },
     {
       name: 'Enterprise',
-      price: '199',
+      price: 199, // Changed to number
       description: 'Built for large agencies and developers.',
       icon: <Crown size={24} color="#7c3aed" />,
       features: ['Unlimited Listings', 'Dedicated Account Manager', 'Custom Branding', 'API Access', 'Multi-user Access'],
@@ -30,14 +33,31 @@ const Pricing = ({ user, setUser }) => {
     }
   ];
 
-  const handleSelectPlan = (planKey) => {
+  const handlePlanSelection = async (plan) => {
+    // 1. Check if User is Logged In
     if (!user) {
-      alert("Please login to choose a plan!");
+      // Redirect to login/register if not authenticated
+      navigate('/login', { state: { redirectTo: '/pricing', selectedPlan: plan.name } });
       return;
     }
-    // Update the user's plan in global state
-    setUser({ ...user, plan: planKey });
-    alert(`Successfully switched to the ${planKey} plan!`);
+
+    // 2. Free Plan Logic
+    if (plan.price === 0) {
+      alert(`Welcome! You can post 1 listing for 30 days. It will be removed automatically after that.`);
+      // Redirect to dashboard after selection
+      navigate('/agent-portal'); 
+    } 
+    // 3. Paid Plan Logic
+    else {
+      const confirmTrial = window.confirm(
+        `Start your 7-day free trial for the ${plan.name} plan? You will be charged $${plan.price} after the trial ends.`
+      );
+      
+      if (confirmTrial) {
+        // Redirect to payment page (Replace with your actual Stripe/PayPal link)
+        window.location.href = `https://your-payment-gateway.com/checkout?plan=${plan.planKey}&trial=true`;
+      }
+    }
   };
 
   return (
@@ -82,7 +102,8 @@ const Pricing = ({ user, setUser }) => {
                 ...styles.button, 
                 backgroundColor: plan.popular ? '#2563eb' : '#0f172a'
               }}
-              onClick={() => handleSelectPlan(plan.planKey)}
+              // Fixed the function name here
+              onClick={() => handlePlanSelection(plan)}
             >
               {user?.plan === plan.planKey ? 'Current Plan' : 'Select Plan'}
             </button>
@@ -93,6 +114,7 @@ const Pricing = ({ user, setUser }) => {
   );
 };
 
+// ... styles remain the same ...
 const styles = {
   container: { padding: '100px 6%', backgroundColor: '#f8fafc', minHeight: '100vh' },
   header: { textAlign: 'center', marginBottom: '60px' },
