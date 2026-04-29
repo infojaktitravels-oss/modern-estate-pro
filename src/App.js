@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'; 
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 
 // Components
 import Header from './components/Header';
@@ -19,40 +19,56 @@ import AddListing from './components/AddListing';
 import EditProperty from './components/EditProperty';
 import { supabase } from './supabaseClient';
 
-
 // 🔐 PROTECTED ROUTE COMPONENT
 const ProtectedRoute = ({ user, children }) => {
-  return user ? children : <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" replace />;
+  return children;
 };
 
 // 🧠 ROLE-BASED ROUTE
 const RoleRoute = ({ user, role, children }) => {
+  if (!user) return <Navigate to="/login" replace />;
   return user?.user_metadata?.role === role
     ? children
-    : <Navigate to="/login" />;
+    : <Navigate to="/" replace />; // Redirect to home if wrong role
 };
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState([]);
+  const navigate = useNavigate();
 
-  // 🔐 Auth
+  // 🔐 Auth Listener & Initialization
   useEffect(() => {
-    const init = async () => {
+    // Check initial session
+    const getInitialSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
       setLoading(false);
     };
 
-    init();
+    getInitialSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
+    // Listen for Auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth Event Triggered:", event);
+      
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        setUser(session?.user ?? null);
+      }
+      
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setProperties([]); // Clear sensitive data from state
+        navigate('/login'); // Force redirect
+      }
     });
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   // 📦 Fetch Properties
   useEffect(() => {
@@ -68,22 +84,20 @@ function App() {
     setProperties((prev) => [newProp, ...prev]);
   };
 
-  // ⏳ Loading
   if (loading) {
     return (
-      <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <h2>Loading ModernEstate...</h2>
+      <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#f8fafc' }}>
+        <h2 style={{ color: '#0f172a', fontWeight: '800' }}>ModernEstate</h2>
       </div>
     );
   }
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif' }}>
+    <div style={{ fontFamily: '"Inter", sans-serif', color: '#0f172a' }}>
       <Header user={user} setUser={setUser} />
 
       <main style={{ minHeight: '80vh' }}>
         <Routes>
-
           {/* 🏠 HOME */}
           <Route path="/" element={
             <>
@@ -93,7 +107,7 @@ function App() {
               </section>
               <section id="about"><About /></section>
               <section id="pricing">
-                <Pricing user={user} setUser={setUser} />
+                <Pricing user={user} />
               </section>
               <section id="contact"><Contact /></section>
             </>
@@ -101,7 +115,7 @@ function App() {
 
           {/* 🌐 PUBLIC */}
           <Route path="/login" element={<Auth setUser={setUser} />} />
-          <Route path="/property/:id" element={<PropertyDetails />} />
+          <Route path="/property/:id" element={<PropertyDetails user={user} />} />
 
           {/* 🔐 PROTECTED */}
           <Route path="/settings" element={
@@ -119,6 +133,12 @@ function App() {
           <Route path="/add-listing" element={
             <ProtectedRoute user={user}>
               <AddListing user={user} />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/edit/:id" element={
+            <ProtectedRoute user={user}>
+              <EditProperty user={user} />
             </ProtectedRoute>
           } />
 
@@ -141,28 +161,18 @@ function App() {
             </RoleRoute>
           } />
 
-          <Route path="/edit/:id" 
-  element={
-    <ProtectedRoute user={user}>
-      <EditProperty user={user} />
-    </ProtectedRoute>
-  } 
-/>
-
           {/* 🔁 FALLBACK */}
-          <Route path="*" element={<Navigate to="/" />} />
-          
-
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
 
       {/* FOOTER */}
-      <footer style={{ padding: '60px 6%', backgroundColor: '#0f172a', color: 'white', textAlign: 'center' }}>
-        <h2>ModernEstate</h2>
-        <p style={{ color: '#94a3b8' }}>
-          Helping you find the perfect place to call home.
+      <footer style={{ padding: '80px 6%', backgroundColor: '#0f172a', color: 'white', textAlign: 'center' }}>
+        <h2 style={{ fontWeight: '800', marginBottom: '10px' }}>ModernEstate</h2>
+        <p style={{ color: '#94a3b8', maxWidth: '400px', margin: '0 auto 20px' }}>
+          Helping you find the perfect place to call home with ease and transparency.
         </p>
-        <div style={{ marginTop: '20px', fontSize: '0.9rem', color: '#64748b' }}>
+        <div style={{ marginTop: '30px', fontSize: '0.85rem', color: '#64748b', borderTop: '1px solid #1e293b', paddingTop: '20px' }}>
           © 2026 ModernEstate. All Rights Reserved.
         </div>
       </footer>
