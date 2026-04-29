@@ -101,7 +101,7 @@ function App() {
 
           {/* 🌐 PUBLIC */}
           <Route path="/login" element={<Auth setUser={setUser} />} />
-          <Route path="/property/:id" element={<PropertyDetails properties={properties} />} />
+          <Route path="/property/:id" element={<PropertyDetails />} />
 
           {/* 🔐 PROTECTED */}
           <Route path="/settings" element={
