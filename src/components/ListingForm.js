@@ -40,29 +40,31 @@ const ListingForm = ({ user, addProperty }) => {
 
   // ✅ Upload images
   const uploadImages = async () => {
-    const urls = [];
+  const urls = [];
 
-    for (let file of images) {
-      const fileName = `${Date.now()}-${file.name}`;
+  for (let file of images) {
+    const fileName = `${Date.now()}-${file.name}`;
 
-      const { error } = await supabase.storage
-        .from('property-images')
-        .upload(fileName, file);
+    const { error } = await supabase.storage
+      .from('property-images') // ✅ EXACT bucket name
+      .upload(fileName, file);
 
-      if (error) {
-        console.error(error);
-        continue;
-      }
-
-      const { data } = supabase.storage
-        .from('property-images')
-        .getPublicUrl(fileName);
-
-      urls.push(data.publicUrl);
+    if (error) {
+      console.error("UPLOAD ERROR:", error.message);
+      continue;
     }
 
-    return urls;
-  };
+    const { data: publicData } = supabase.storage
+      .from('property-images')
+      .getPublicUrl(fileName);
+
+    console.log("IMAGE URL:", publicData.publicUrl); // ✅ debug
+
+    urls.push(publicData.publicUrl);
+  }
+
+  return urls;
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
