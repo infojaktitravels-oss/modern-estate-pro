@@ -1,14 +1,21 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom'; // Added for navigation
+import { useNavigate } from 'react-router-dom';
 import { Check, Zap, Building2, Crown } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 const Pricing = ({ user }) => {
-  const navigate = useNavigate(); // Initialize navigation
+  const navigate = useNavigate();
+
+  // ✅ Stripe Payment Links
+  const STRIPE_LINKS = {
+    pro: "https://buy.stripe.com/test_bJe7sN1Uo2jT5Fy0D62kw00",
+    enterprise: "https://buy.stripe.com/test_9B614paqU4s12tm1Ha2kw01"
+  };
 
   const plans = [
     {
       name: 'Starter',
-      price: 0, // Changed to number for easier logic
+      price: 0,
       description: 'Perfect for individual sellers testing the market.',
       icon: <Building2 size={24} color="#64748b" />,
       features: ['1 Property Listing', 'Basic Support', 'Standard Analytics', 'Mobile App Access'],
@@ -16,7 +23,7 @@ const Pricing = ({ user }) => {
     },
     {
       name: 'Professional',
-      price: 49, // Changed to number
+      price: 49,
       description: 'The best choice for active real estate agents.',
       icon: <Zap size={24} color="#2563eb" />,
       features: ['10 Property Listings', 'Priority Support', 'Advanced Analytics', 'Featured Badge', 'Lead Management'],
@@ -25,7 +32,7 @@ const Pricing = ({ user }) => {
     },
     {
       name: 'Enterprise',
-      price: 199, // Changed to number
+      price: 199,
       description: 'Built for large agencies and developers.',
       icon: <Crown size={24} color="#7c3aed" />,
       features: ['Unlimited Listings', 'Dedicated Account Manager', 'Custom Branding', 'API Access', 'Multi-user Access'],
@@ -33,30 +40,60 @@ const Pricing = ({ user }) => {
     }
   ];
 
+  // ✅ Update user plan in Supabase
+  const updateUserPlan = async (plan, status = "active") => {
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+    if (!currentUser) return;
+
+    await supabase
+      .from("users")
+      .update({
+        plan: plan,
+        plan_status: status,
+        updated_at: new Date()
+      })
+      .eq("id", currentUser.id);
+  };
+
+  // ✅ Main handler
   const handlePlanSelection = async (plan) => {
-    // 1. Check if User is Logged In
+
+    // 1. Check login
     if (!user) {
-      // Redirect to login/register if not authenticated
-      navigate('/login', { state: { redirectTo: '/pricing', selectedPlan: plan.name } });
+      navigate('/login', {
+        state: { redirectTo: '/pricing', selectedPlan: plan.planKey }
+      });
       return;
     }
 
-    // 2. Free Plan Logic
+    // 2. Free plan
     if (plan.price === 0) {
-      alert(`Welcome! You can post 1 listing for 30 days. It will be removed automatically after that.`);
-      // Redirect to dashboard after selection
-      navigate('/agent-portal'); 
-    } 
-    // 3. Paid Plan Logic
-    else {
-      const confirmTrial = window.confirm(
-        `Start your 7-day free trial for the ${plan.name} plan? You will be charged $${plan.price} after the trial ends.`
-      );
-      
-      if (confirmTrial) {
-        // Redirect to payment page (Replace with your actual Stripe/PayPal link)
-        window.location.href = `https://your-payment-gateway.com/checkout?plan=${plan.planKey}&trial=true`;
-      }
+      alert("✅ Free plan activated (1 listing for 30 days)");
+
+      await updateUserPlan('basic', 'active');
+
+      navigate('/agent-portal');
+      return;
+    }
+
+    // 3. Paid plan confirm
+    const confirmTrial = window.confirm(
+      `🚀 Start ${plan.name} plan?\n\nYou’ll be redirected to secure payment.`
+    );
+
+    if (!confirmTrial) return;
+
+    try {
+      // 4. Mark as pending before payment
+      await updateUserPlan(plan.planKey, 'pending');
+
+      // 5. Redirect to Stripe
+      window.location.href = STRIPE_LINKS[plan.planKey];
+
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong. Please try again.");
     }
   };
 
@@ -72,7 +109,7 @@ const Pricing = ({ user }) => {
           <div 
             key={plan.planKey} 
             style={{
-              ...styles.card, 
+              ...styles.card,
               border: plan.popular ? '2px solid #2563eb' : '1px solid #e2e8f0',
               transform: plan.popular ? 'scale(1.05)' : 'scale(1)'
             }}
@@ -81,11 +118,13 @@ const Pricing = ({ user }) => {
             
             <div style={styles.iconBox}>{plan.icon}</div>
             <h3 style={styles.planName}>{plan.name}</h3>
+
             <div style={styles.priceContainer}>
               <span style={styles.currency}>$</span>
               <span style={styles.price}>{plan.price}</span>
               <span style={styles.duration}>/mo</span>
             </div>
+
             <p style={styles.description}>{plan.description}</p>
 
             <div style={styles.featureList}>
@@ -99,13 +138,16 @@ const Pricing = ({ user }) => {
 
             <button 
               style={{
-                ...styles.button, 
+                ...styles.button,
                 backgroundColor: plan.popular ? '#2563eb' : '#0f172a'
               }}
-              // Fixed the function name here
               onClick={() => handlePlanSelection(plan)}
             >
-              {user?.plan === plan.planKey ? 'Current Plan' : 'Select Plan'}
+              {user?.plan === plan.planKey
+                ? 'Current Plan'
+                : plan.price === 0
+                ? 'Start Free'
+                : 'Start Plan'}
             </button>
           </div>
         ))}
@@ -114,7 +156,7 @@ const Pricing = ({ user }) => {
   );
 };
 
-// ... styles remain the same ...
+// ✅ Styles
 const styles = {
   container: { padding: '100px 6%', backgroundColor: '#f8fafc', minHeight: '100vh' },
   header: { textAlign: 'center', marginBottom: '60px' },
@@ -133,7 +175,7 @@ const styles = {
   featureList: { marginBottom: '40px', display: 'flex', flexDirection: 'column', gap: '15px' },
   featureItem: { display: 'flex', alignItems: 'center', gap: '12px' },
   featureText: { color: '#475569', fontSize: '0.9rem', fontWeight: '500' },
-  button: { width: '100%', padding: '14px', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '700', cursor: 'pointer', transition: '0.3s' }
+  button: { width: '100%', padding: '14px', border: 'none', borderRadius: '12px', color: 'white', fontWeight: '700', cursor: 'pointer' }
 };
 
 export default Pricing;
